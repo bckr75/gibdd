@@ -107,8 +107,7 @@ class Gibdd
      * @var array $_params
      * */
     private $_params = [
-        'timeout' => 30,
-        'retries' => 2
+        'timeout' => 30
     ];
 
     /**
@@ -260,7 +259,7 @@ class Gibdd
      * @return string
      * @throws \Exception
      */
-    public function getCaptchaValue($options) {
+    public function getCaptchaValue($options = null) {
         $this->_curl->get(self::HOST . self::CAPTCHA_PATH);
         if ($this->_curl->error) {
             throw new \Exception('Getting page fail: ' . $this->_curl->errorMessage);
