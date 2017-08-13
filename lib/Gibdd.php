@@ -120,7 +120,7 @@ class Gibdd
         $this->_curl->setDefaultDecoder(function($json) {
             return json_decode($json, true);
         });
-        if(!empty($proxy = $this->_params['proxy'])) {
+        if(isset($this->_params['proxy']) && !empty($proxy = $this->_params['proxy'])) {
             $this->_curl->setOpt(CURLOPT_PROXY, $proxy['address']);
             $this->_curl->setOpt(CURLOPT_PROXYUSERPWD, $proxy['userpass']);
         }
