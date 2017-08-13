@@ -2,7 +2,8 @@
 
 namespace bckr75;
 
-use \Curl\Curl;
+use Curl\Curl;
+
 class Gibdd
 {
 
@@ -11,7 +12,7 @@ class Gibdd
     const CAPTCHA_PATH = '/proxy/captcha.jpg';
     protected static $_checkMethods = [
         'history' => [
-            'history'=> [
+            'history' => [
                 'vehicle' => [
                     'vehicle' => [
                         'model' => 'model',
@@ -100,16 +101,32 @@ class Gibdd
     public $raw = [];
     public $debug = [];
     private $_curl;
+
+    /**
+     * Default parameters in case you're initializing class without any.
+     * @var array $_params
+     * */
     private $_params = [
         'timeout' => 30,
         'retries' => 2
     ];
 
+    /**
+     * Returns all four check methods in case you want to do something with it
+     * (e.g. write your own function to override default tryGetSmth)
+     * @return array
+     */
     public static function getCheckMethods() {
         return array_keys(self::$_checkMethods);
     }
 
-    function __construct(array $params = null){
+    /**
+     * Gibdd constructor. Default parameters are described above in $_params.
+     * It's strongly recommended to use proxy in parsing,
+     * so $params may contain array 'proxy' with 'address' => 'ip:port' and 'userpass' => 'username:password'
+     * @param array|null $params
+     */
+    function __construct(array $params = null) {
         if (!empty($params)) {
             $this->_params = array_replace_recursive($this->_params, $params);
         }
@@ -117,10 +134,10 @@ class Gibdd
         $this->_curl->setJsonDecoder(function ($json) {
             return json_decode($json, true);
         });
-        $this->_curl->setDefaultDecoder(function($json) {
+        $this->_curl->setDefaultDecoder(function ($json) {
             return json_decode($json, true);
         });
-        if(isset($this->_params['proxy']) && !empty($proxy = $this->_params['proxy'])) {
+        if (isset($this->_params['proxy']) && !empty($proxy = $this->_params['proxy'])) {
             $this->_curl->setOpt(CURLOPT_PROXY, $proxy['address']);
             $this->_curl->setOpt(CURLOPT_PROXYUSERPWD, $proxy['userpass']);
         }
@@ -147,12 +164,23 @@ class Gibdd
         return $this->exec('restrict', $vin, $captcha);
     }
 
+    /**
+     * Core execution function, returns bool value, execution result will be in $this->raw if there were no errors,
+     * else $this->debug will speak for itself.
+     * @param string $page
+     * @param string $vin
+     * @param string $captcha
+     * @return bool
+     * @throws \Exception
+     */
     protected function exec($page, $vin, $captcha) {
         $type = array_keys(self::$_checkMethods[$page])[0];
         $tpl = self::$_checkMethods[$page][$type];
-        if(!$type) throw new \Exception("Type for \"$page\" doesn't exist.");
-        if(!$this->_curl->getCookie('JSESSIONID')) {
-            if(!empty($_COOKIE['JSESSIONID'])) {
+        if (!$type) {
+            throw new \Exception("Type for \"$page\" doesn't exist.");
+        }
+        if (!$this->_curl->getCookie('JSESSIONID')) {
+            if (!empty($_COOKIE['JSESSIONID'])) {
                 $this->_curl->setCookie('JSESSIONID', $_COOKIE['JSESSIONID']);
             } else {
                 throw new \Exception('Cookie "JSESSIONID" doesn\'t exist');
@@ -163,17 +191,17 @@ class Gibdd
             'captchaWord' => $captcha,
             'checkType' => $type
         ]);
-        if($this->_curl->response['status'] == 201) {
+        if ($this->_curl->response['status'] == 201) {
             $this->debug[$type][] = [
-                'from' => __METHOD__.'->'.$page,
+                'from' => __METHOD__ . '->' . $page,
                 'message' => 'Invalid captcha',
                 'code' => $this->_curl->response['status']
             ];
             return false;
         }
-        if(!is_array($this->_curl->response['RequestResult'])) {
+        if (!is_array($this->_curl->response['RequestResult'])) {
             $this->debug[$type][] = [
-                'from' => __METHOD__.'->'.$page,
+                'from' => __METHOD__ . '->' . $page,
                 'message' => 'Invalid response',
                 'code' => 500
             ];
@@ -183,47 +211,69 @@ class Gibdd
         return true;
     }
 
+    /**
+     * Filters raw array and converts it
+     * @param array $raw
+     * @param array $template
+     * @return array
+     */
     public static function convertRaw($raw, $template) {
         $result = [];
         foreach ($template as $item => $value) {
-            if(is_array($value)) {
+            if (is_array($value)) {
                 $rawName = array_keys($value)[0];
-                if(strpos($rawName, '.')) {
+                if (strpos($rawName, '.')) {
                     $tree = explode('.', $rawName);
                     $raw[$rawName] = $raw;
                     foreach ($tree as $path) {
                         $raw[$rawName] = $raw[$rawName][$path];
                     }
                 }
-                if($item === 'each') {
+                if ($item === 'each') {
                     foreach ($raw as $item) {
                         $result[] = self::convertRaw($item, $value);
                     }
                     continue;
                 }
                 $result[$item] = self::convertRaw($raw[$rawName], $value[$rawName]);
-                if($item === 'this') {
+                if ($item === 'this') {
                     $result = $result[$item];
                 }
                 continue;
             }
-            if(!empty($raw[$value])) {
+            if (!empty($raw[$value])) {
                 $result[$item] = $raw[$value];
             }
         }
         return $result;
     }
 
-    public function getCaptchaValue($setCookie = false) {
+    /**
+     * Returns captcha as is or base64 encoded.
+     * For further check we will need to get 'JSESSIONID' cookie, so:
+     * @param array $options
+     * This array may contain next two parameters:
+     * 'setCookie' and 'base64'.
+     * setCookie - by default cookie sets only in $this->curl, so if you need to make a new Gibdd class everytime,
+     * you need to set cookie in browser. This is what this option responsible for.
+     * base64 - in case you want to return base64 encoded captcha.
+     * @return string
+     * @throws \Exception
+     */
+    public function getCaptchaValue($options) {
         $this->_curl->get(self::HOST . self::CAPTCHA_PATH);
-        if ($this->_curl->error) throw new \Exception('Getting page fail: ' . $this->_curl->errorMessage);
+        if ($this->_curl->error) {
+            throw new \Exception('Getting page fail: ' . $this->_curl->errorMessage);
+        }
         if (empty($cookie = $this->_curl->getResponseCookie('JSESSIONID')) &&
-            empty($cookie = $this->_curl->getCookie('JSESSIONID')))
-        { throw  new \Exception('Getting session cookie fail'); }
+            empty($cookie = $this->_curl->getCookie('JSESSIONID'))) {
+            throw  new \Exception('Getting session cookie fail');
+        }
         $this->_curl->setCookie('JSESSIONID', $cookie);
-        if($setCookie) {
+        if (isset($options['setCookie']) && $options['setCookie']) {
             setcookie('JSESSIONID', $cookie, time() + 30, '/');
         }
-        return $this->_curl->rawResponse;
+        return (isset($options['base64']) && $options['base64']) ?
+            'data:image/png;base64,' . base64_encode($this->_curl->rawResponse) : $this->_curl->rawResponse;
     }
 }
