@@ -1,0 +1,19 @@
+{
+    "name": "bckr75/Gibdd",
+    "description": "Simple gibdd.ru parser",
+    "version": "1.0.0",
+    "authors": [
+        {
+            "name": "Vsevolod Krasnobaev",
+            "email": "maximov.vsev@gmail.com"
+        }
+    ],
+    "require": {
+        "php-curl-class/php-curl-class": "^7.2"
+    },
+    "autoload":{
+        "psr-4":{
+            "bckr75\\":"lib/"
+        }
+    }
+}
