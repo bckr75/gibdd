@@ -2,6 +2,7 @@
     "name": "bckr75/gibdd",
     "description": "Simple gibdd.ru parser",
     "version": "1.0.0",
+    "license" : "MIT",
     "authors": [
         {
             "name": "Vsevolod Krasnobaev",
