@@ -19,7 +19,13 @@ composer install
 Класс инициализируется с опциональным массивом параметров, например(все доступные параметры):  
 ```
 [ 
-  'timeout' => 30, //таймаут соединения
+  'timeout' => 30,                                                            //таймаут соединения
+  'useragent' => 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 ' .
+            '(KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36',         //строка user-agent
+  'host' => 'http://check.gibdd.ru',                                          //хост из URI POST-запроса
+  'check_path' => '/proxy/check/auto/',                                       //остальная часть URI POST-запроса
+  'captcha_path' => '/proxy/captcha.jpg',                                     //часть URI GET-запроса изображения капчи
+  'referrer' => 'http://check.gibdd.ru/proxy/captcha.jpg'                     //реферрер
   'proxy' => [
     'address' => '127.0.0.1:80', //ip:порт
     'userpass' => 'root:12345' //юзернейм:пароль
@@ -27,6 +33,16 @@ composer install
 ]
 ```
 __При соединении можно использовать прокси(если не используете, просто уберите 'proxy' из массива).__
+
+__Вы можете указать массив прокси c элементами вида__
+```php 
+  'proxy' => [
+    ['address' => 'ip1:port1', 'userpass' => 'username1:password1'],
+    ['address' => 'ip2:port2', 'userpass' => 'username2:password2'],
+    ...
+  ]
+```
+__Для того, чтобы иметь возможность каждый раз устанавливать новый прокси при запросе в цикле, не создавая при этом новый класс.__
 ### Капча
 Перед каждой проверкой нужно получить капчу. 
 Для этого необходимо вызвать функцию getCaptchaValue с опциональным массивом параметров:
