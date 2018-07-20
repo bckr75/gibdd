@@ -99,9 +99,10 @@ class Gibdd
         ]
     ];
 
-    public $raw = [];
-    public $debug = [];
-    private $_curl;
+    public  $raw = [];
+    public  $debug = [];
+    private $isProxied = false;
+    private $curl;
 
     /**
      * Default parameters in case you're initializing class without any.
@@ -139,17 +140,17 @@ class Gibdd
         if (!empty($params)) {
             $this->_params = array_replace_recursive($this->_params, $params);
         }
-        $this->_curl = new Curl();
-        $this->_curl->setJsonDecoder(function ($json) {
+        $this->curl = new Curl();
+        $this->curl->setJsonDecoder(function ($json) {
             return json_decode($json, true);
         });
-        $this->_curl->setDefaultDecoder(function ($json) {
+        $this->curl->setDefaultDecoder(function ($json) {
             return json_decode($json, true);
         });
-        $this->_curl->setOpt(CURLOPT_USERAGENT, $this->_params['useragent']);
-        $this->_curl->setOpt(CURLOPT_REFERER, $this->_params['referrer']);
-        $this->_curl->setOpt(CURLOPT_CONNECTTIMEOUT, $this->_params['timeout']);
-        $this->_curl->setHeader('Origin', $this->_params['host']);
+        $this->curl->setOpt(CURLOPT_USERAGENT, $this->_params['useragent']);
+        $this->curl->setOpt(CURLOPT_REFERER, $this->_params['referrer']);
+        $this->curl->setOpt(CURLOPT_CONNECTTIMEOUT, $this->_params['timeout']);
+        $this->curl->setHeader('Origin', $this->_params['host']);
     }
 
     /**
@@ -210,20 +211,23 @@ class Gibdd
      * @throws \Exception
      */
     public function getCaptchaValue($options = null) {
-        $this->_curl->get(self::HOST . self::CAPTCHA_PATH);
-        if ($this->_curl->error) {
-            throw new \Exception('Getting page fail: ' . $this->_curl->errorMessage);
+        if (!$this->isProxied) {
+            $this->setProxy();
         }
-        if (empty($cookie = $this->_curl->getResponseCookie('JSESSIONID')) &&
-            empty($cookie = $this->_curl->getCookie('JSESSIONID'))) {
+        $this->curl->get(self::HOST . self::CAPTCHA_PATH);
+        if ($this->curl->error) {
+            throw new \Exception('Getting page fail: ' . $this->curl->errorMessage);
+        }
+        if (empty($cookie = $this->curl->getResponseCookie('JSESSIONID')) &&
+            empty($cookie = $this->curl->getCookie('JSESSIONID'))) {
             throw  new \Exception('Getting session cookie fail');
         }
-        $this->_curl->setCookie('JSESSIONID', $cookie);
+        $this->curl->setCookie('JSESSIONID', $cookie);
         if (isset($options['setCookie']) && $options['setCookie']) {
             setcookie('JSESSIONID', $cookie, time() + 30, '/');
         }
         return (isset($options['base64']) && $options['base64']) ?
-            'data:image/png;base64,' . base64_encode($this->_curl->rawResponse) : $this->_curl->rawResponse;
+            'data:image/png;base64,' . base64_encode($this->curl->rawResponse) : $this->curl->rawResponse;
     }
 
     /**
@@ -241,28 +245,30 @@ class Gibdd
         if (!$type) {
             throw new \Exception("Type for \"$page\" doesn't exist.");
         }
-        if (!$this->_curl->getCookie('JSESSIONID')) {
+        if (!$this->curl->getCookie('JSESSIONID')) {
             if (!empty($_COOKIE['JSESSIONID'])) {
-                $this->_curl->setCookie('JSESSIONID', $_COOKIE['JSESSIONID']);
+                $this->curl->setCookie('JSESSIONID', $_COOKIE['JSESSIONID']);
             } else {
                 throw new \Exception('Cookie "JSESSIONID" doesn\'t exist');
             }
         }
-        $this->setProxy();
-        $this->_curl->post(self::HOST . self::CHECK_PATH . $page, [
+        if (!$this->isProxied) {
+            $this->setProxy();
+        }
+        $this->curl->post(self::HOST . self::CHECK_PATH . $page, [
             'vin' => $vin,
             'captchaWord' => $captcha,
             'checkType' => $type
         ]);
-        if ($this->_curl->response['status'] == 201) {
+        if ($this->curl->response['status'] == 201) {
             $this->debug[$type][] = [
                 'from' => __METHOD__ . '->' . $page,
                 'message' => 'Invalid captcha',
-                'code' => $this->_curl->response['status']
+                'code' => $this->curl->response['status']
             ];
             return false;
         }
-        if (!is_array($this->_curl->response['RequestResult'])) {
+        if (!is_array($this->curl->response['RequestResult'])) {
             $this->debug[$type][] = [
                 'from' => __METHOD__ . '->' . $page,
                 'message' => 'Invalid response',
@@ -270,7 +276,8 @@ class Gibdd
             ];
             return false;
         }
-        $this->raw[$type] = $this->convertRaw($this->_curl->response['RequestResult'], $tpl);
+        $this->raw[$type] = $this->convertRaw($this->curl->response['RequestResult'], $tpl);
+        $this->isProxied = false;
         return true;
     }
 
@@ -313,13 +320,14 @@ class Gibdd
 
     private function setProxy() {
         if (isset($this->_params['proxy']) && !empty($proxy = $this->_params['proxy'])) {
+            $this->isProxied = true;
             if(isset($proxy['address']) && isset($proxy['userpass'])) {
-                $this->_curl->setOpt(CURLOPT_PROXY, $proxy['address']);
-                $this->_curl->setOpt(CURLOPT_PROXYUSERPWD, $proxy['userpass']);
+                $this->curl->setOpt(CURLOPT_PROXY, $proxy['address']);
+                $this->curl->setOpt(CURLOPT_PROXYUSERPWD, $proxy['userpass']);
             } elseif(isset($proxy[0]) && is_array($proxy[0])) {
                 $proxyItem = $proxy[rand(0, count($proxy) - 1)];
-                $this->_curl->setOpt(CURLOPT_PROXY, $proxyItem['address']);
-                $this->_curl->setOpt(CURLOPT_PROXYUSERPWD, $proxyItem['userpass']);
+                $this->curl->setOpt(CURLOPT_PROXY, $proxyItem['address']);
+                $this->curl->setOpt(CURLOPT_PROXYUSERPWD, $proxyItem['userpass']);
             }
         }
     }
