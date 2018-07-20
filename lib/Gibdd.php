@@ -107,7 +107,13 @@ class Gibdd
      * @var array $_params
      * */
     private $_params = [
-        'timeout' => 30
+        'timeout' => 30,
+        'useragent' => 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 ' .
+            '(KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36',
+        'host' => self::HOST,
+        'check_path' => self::CHECK_PATH,
+        'captcha_path' => self::CAPTCHA_PATH,
+        'referrer' => self::HOST . self::CAPTCHA_PATH
     ];
 
     /**
@@ -123,7 +129,10 @@ class Gibdd
      * Gibdd constructor. Default parameters are described above in $_params.
      * It's strongly recommended to use proxy in parsing,
      * so $params may contain array 'proxy' with 'address' => 'ip:port' and 'userpass' => 'username:password'
+     *
      * @param array|null $params
+     *
+     * @throws \ErrorException
      */
     function __construct(array $params = null) {
         if (!empty($params)) {
@@ -140,27 +149,84 @@ class Gibdd
             $this->_curl->setOpt(CURLOPT_PROXY, $proxy['address']);
             $this->_curl->setOpt(CURLOPT_PROXYUSERPWD, $proxy['userpass']);
         }
-        $this->_curl->setOpt(CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 ' .
-            '(KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36');
-        $this->_curl->setOpt(CURLOPT_REFERER, 'http://www.gibdd.ru/check/auto/');
+        $this->_curl->setOpt(CURLOPT_USERAGENT, $this->_params['useragent']);
+        $this->_curl->setOpt(CURLOPT_REFERER, $this->_params['referrer']);
         $this->_curl->setOpt(CURLOPT_CONNECTTIMEOUT, $this->_params['timeout']);
-        $this->_curl->setHeader('Origin', 'http://www.gibdd.ru');
+        $this->_curl->setHeader('Origin', $this->_params['host']);
     }
 
+    /**
+     * @param string $vin
+     * @param string $captcha
+     *
+     * @return bool
+     * @throws \Exception
+     */
     function tryGetHistory($vin, $captcha) {
         return $this->exec('history', $vin, $captcha);
     }
 
+    /**
+     * @param string $vin
+     * @param string $captcha
+     *
+     * @return bool
+     * @throws \Exception
+     */
     function tryGetDtp($vin, $captcha) {
         return $this->exec('dtp', $vin, $captcha);
     }
 
+    /**
+     * @param string $vin
+     * @param string $captcha
+     *
+     * @return bool
+     * @throws \Exception
+     */
     function tryGetIsWanted($vin, $captcha) {
         return $this->exec('wanted', $vin, $captcha);
     }
 
+    /**
+     * @param string $vin
+     * @param string $captcha
+     *
+     * @return bool
+     * @throws \Exception
+     */
     function tryGetRestrictions($vin, $captcha) {
         return $this->exec('restrict', $vin, $captcha);
+    }
+
+
+    /**
+     * Returns captcha as is or base64 encoded.
+     * For further check we will need to get 'JSESSIONID' cookie, so:
+     * @param array $options
+     * This array may contain next two parameters:
+     * 'setCookie' and 'base64'.
+     * setCookie - by default cookie sets only in $this->curl, so if you need to make a new Gibdd class everytime,
+     * you need to set cookie in browser. This is what this option responsible for.
+     * base64 - in case you want to return base64 encoded captcha.
+     * @return string
+     * @throws \Exception
+     */
+    public function getCaptchaValue($options = null) {
+        $this->_curl->get(self::HOST . self::CAPTCHA_PATH);
+        if ($this->_curl->error) {
+            throw new \Exception('Getting page fail: ' . $this->_curl->errorMessage);
+        }
+        if (empty($cookie = $this->_curl->getResponseCookie('JSESSIONID')) &&
+            empty($cookie = $this->_curl->getCookie('JSESSIONID'))) {
+            throw  new \Exception('Getting session cookie fail');
+        }
+        $this->_curl->setCookie('JSESSIONID', $cookie);
+        if (isset($options['setCookie']) && $options['setCookie']) {
+            setcookie('JSESSIONID', $cookie, time() + 30, '/');
+        }
+        return (isset($options['base64']) && $options['base64']) ?
+            'data:image/png;base64,' . base64_encode($this->_curl->rawResponse) : $this->_curl->rawResponse;
     }
 
     /**
@@ -172,7 +238,7 @@ class Gibdd
      * @return bool
      * @throws \Exception
      */
-    protected function exec($page, $vin, $captcha) {
+    private function exec($page, $vin, $captcha) {
         $type = array_keys(self::$_checkMethods[$page])[0];
         $tpl = self::$_checkMethods[$page][$type];
         if (!$type) {
@@ -216,7 +282,7 @@ class Gibdd
      * @param array $template
      * @return array
      */
-    public static function convertRaw($raw, $template) {
+    private function convertRaw($raw, $template) {
         $result = [];
         foreach ($template as $item => $value) {
             if (is_array($value)) {
@@ -245,34 +311,5 @@ class Gibdd
             }
         }
         return $result;
-    }
-
-    /**
-     * Returns captcha as is or base64 encoded.
-     * For further check we will need to get 'JSESSIONID' cookie, so:
-     * @param array $options
-     * This array may contain next two parameters:
-     * 'setCookie' and 'base64'.
-     * setCookie - by default cookie sets only in $this->curl, so if you need to make a new Gibdd class everytime,
-     * you need to set cookie in browser. This is what this option responsible for.
-     * base64 - in case you want to return base64 encoded captcha.
-     * @return string
-     * @throws \Exception
-     */
-    public function getCaptchaValue($options = null) {
-        $this->_curl->get(self::HOST . self::CAPTCHA_PATH);
-        if ($this->_curl->error) {
-            throw new \Exception('Getting page fail: ' . $this->_curl->errorMessage);
-        }
-        if (empty($cookie = $this->_curl->getResponseCookie('JSESSIONID')) &&
-            empty($cookie = $this->_curl->getCookie('JSESSIONID'))) {
-            throw  new \Exception('Getting session cookie fail');
-        }
-        $this->_curl->setCookie('JSESSIONID', $cookie);
-        if (isset($options['setCookie']) && $options['setCookie']) {
-            setcookie('JSESSIONID', $cookie, time() + 30, '/');
-        }
-        return (isset($options['base64']) && $options['base64']) ?
-            'data:image/png;base64,' . base64_encode($this->_curl->rawResponse) : $this->_curl->rawResponse;
     }
 }
