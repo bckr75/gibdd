@@ -145,16 +145,6 @@ class Gibdd
         $this->_curl->setDefaultDecoder(function ($json) {
             return json_decode($json, true);
         });
-        if (isset($this->_params['proxy']) && !empty($proxy = $this->_params['proxy'])) {
-            if(isset($proxy['address']) && isset($proxy['userpass'])) {
-                $this->_curl->setOpt(CURLOPT_PROXY, $proxy['address']);
-                $this->_curl->setOpt(CURLOPT_PROXYUSERPWD, $proxy['userpass']);
-            } elseif(isset($proxy[0]) && is_array($proxy[0])) {
-                $proxyItem = $proxy[rand(0, count($proxy) - 1)];
-                $this->_curl->setOpt(CURLOPT_PROXY, $proxyItem['address']);
-                $this->_curl->setOpt(CURLOPT_PROXYUSERPWD, $proxyItem['userpass']);
-            }
-        }
         $this->_curl->setOpt(CURLOPT_USERAGENT, $this->_params['useragent']);
         $this->_curl->setOpt(CURLOPT_REFERER, $this->_params['referrer']);
         $this->_curl->setOpt(CURLOPT_CONNECTTIMEOUT, $this->_params['timeout']);
@@ -257,6 +247,7 @@ class Gibdd
                 throw new \Exception('Cookie "JSESSIONID" doesn\'t exist');
             }
         }
+        $this->setProxy();
         $this->_curl->post(self::HOST . self::CHECK_PATH . $page, [
             'vin' => $vin,
             'captchaWord' => $captcha,
@@ -317,5 +308,18 @@ class Gibdd
             }
         }
         return $result;
+    }
+
+    private function setProxy() {
+        if (isset($this->_params['proxy']) && !empty($proxy = $this->_params['proxy'])) {
+            if(isset($proxy['address']) && isset($proxy['userpass'])) {
+                $this->_curl->setOpt(CURLOPT_PROXY, $proxy['address']);
+                $this->_curl->setOpt(CURLOPT_PROXYUSERPWD, $proxy['userpass']);
+            } elseif(isset($proxy[0]) && is_array($proxy[0])) {
+                $proxyItem = $proxy[rand(0, count($proxy) - 1)];
+                $this->_curl->setOpt(CURLOPT_PROXY, $proxyItem['address']);
+                $this->_curl->setOpt(CURLOPT_PROXYUSERPWD, $proxyItem['userpass']);
+            }
+        }
     }
 }
