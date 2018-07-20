@@ -10,6 +10,7 @@ class Gibdd
     const HOST = 'http://check.gibdd.ru';
     const CHECK_PATH = '/proxy/check/auto/';
     const CAPTCHA_PATH = '/proxy/captcha.jpg';
+    const REFERRER = self::HOST . '/check/auto/';
     protected static $_checkMethods = [
         'history' => [
             'history' => [
@@ -113,7 +114,7 @@ class Gibdd
         'host' => self::HOST,
         'check_path' => self::CHECK_PATH,
         'captcha_path' => self::CAPTCHA_PATH,
-        'referrer' => self::HOST . self::CAPTCHA_PATH
+        'referrer' => self::REFERRER
     ];
 
     /**
