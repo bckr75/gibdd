@@ -181,6 +181,7 @@ class Gibdd
      * @return bool
      * @throws GibddCookieException
      * @throws GibddRuntimeException
+     * @throws GibddCaptchaException
      */
     public function tryGetHistory($vin, $captcha) {
         return $this->exec('history', $vin, $captcha);
@@ -193,6 +194,7 @@ class Gibdd
      * @return bool
      * @throws GibddCookieException
      * @throws GibddRuntimeException
+     * @throws GibddCaptchaException
      */
     public function tryGetDtp($vin, $captcha) {
         return $this->exec('dtp', $vin, $captcha);
@@ -205,6 +207,7 @@ class Gibdd
      * @return bool
      * @throws GibddCookieException
      * @throws GibddRuntimeException
+     * @throws GibddCaptchaException
      */
     public function tryGetIsWanted($vin, $captcha) {
         return $this->exec('wanted', $vin, $captcha);
@@ -217,6 +220,7 @@ class Gibdd
      * @return bool
      * @throws GibddCookieException
      * @throws GibddRuntimeException
+     * @throws GibddCaptchaException
      */
     public function tryGetRestrictions($vin, $captcha) {
         return $this->exec('restrict', $vin, $captcha);
