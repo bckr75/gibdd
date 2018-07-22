@@ -2,6 +2,9 @@
 
 namespace bckr75;
 
+use bckr75\Exceptions\GibddCaptchaException;
+use bckr75\Exceptions\GibddCookieException;
+use bckr75\Exceptions\GibddRuntimeException;
 use Curl\Curl;
 
 class Gibdd
@@ -99,8 +102,11 @@ class Gibdd
         ]
     ];
 
-    public  $raw = [];
-    public  $debug = [];
+    /** @deprecated @var array - вместо прямого доступа используйте геттер */
+    public $raw       = [];
+    /** @deprecated @var array - вместо прямого доступа используйте геттер */
+    public $debug     = [];
+
     private $isProxied = false;
     private $curl;
 
@@ -117,6 +123,7 @@ class Gibdd
         'captcha_path' => self::CAPTCHA_PATH,
         'referrer' => self::REFERRER
     ];
+
 
     /**
      * Returns all four check methods in case you want to do something with it
@@ -136,7 +143,7 @@ class Gibdd
      *
      * @throws \ErrorException
      */
-    function __construct(array $params = null) {
+    public function __construct(array $params = null) {
         if (!empty($params)) {
             $this->_params = array_replace_recursive($this->_params, $params);
         }
@@ -154,13 +161,28 @@ class Gibdd
     }
 
     /**
+     * @return array
+     */
+    public function getRaw() {
+        return $this->raw;
+    }
+
+    /**
+     * @return array
+     */
+    public function getDebug() {
+        return $this->debug;
+    }
+
+    /**
      * @param string $vin
      * @param string $captcha
      *
      * @return bool
-     * @throws \Exception
+     * @throws GibddCookieException
+     * @throws GibddRuntimeException
      */
-    function tryGetHistory($vin, $captcha) {
+    public function tryGetHistory($vin, $captcha) {
         return $this->exec('history', $vin, $captcha);
     }
 
@@ -169,9 +191,10 @@ class Gibdd
      * @param string $captcha
      *
      * @return bool
-     * @throws \Exception
+     * @throws GibddCookieException
+     * @throws GibddRuntimeException
      */
-    function tryGetDtp($vin, $captcha) {
+    public function tryGetDtp($vin, $captcha) {
         return $this->exec('dtp', $vin, $captcha);
     }
 
@@ -180,9 +203,10 @@ class Gibdd
      * @param string $captcha
      *
      * @return bool
-     * @throws \Exception
+     * @throws GibddCookieException
+     * @throws GibddRuntimeException
      */
-    function tryGetIsWanted($vin, $captcha) {
+    public function tryGetIsWanted($vin, $captcha) {
         return $this->exec('wanted', $vin, $captcha);
     }
 
@@ -191,24 +215,27 @@ class Gibdd
      * @param string $captcha
      *
      * @return bool
-     * @throws \Exception
+     * @throws GibddCookieException
+     * @throws GibddRuntimeException
      */
-    function tryGetRestrictions($vin, $captcha) {
+    public function tryGetRestrictions($vin, $captcha) {
         return $this->exec('restrict', $vin, $captcha);
     }
-
 
     /**
      * Returns captcha as is or base64 encoded.
      * For further check we will need to get 'JSESSIONID' cookie, so:
+     *
      * @param array $options
      * This array may contain next two parameters:
      * 'setCookie' and 'base64'.
      * setCookie - by default cookie sets only in $this->curl, so if you need to make a new Gibdd class everytime,
      * you need to set cookie in browser. This is what this option responsible for.
      * base64 - in case you want to return base64 encoded captcha.
+     *
      * @return string
-     * @throws \Exception
+     * @throws GibddCaptchaException
+     * @throws GibddCookieException
      */
     public function getCaptchaValue($options = null) {
         if (!$this->isProxied) {
@@ -216,11 +243,11 @@ class Gibdd
         }
         $this->curl->get(self::HOST . self::CAPTCHA_PATH);
         if ($this->curl->error) {
-            throw new \Exception('Getting page fail: ' . $this->curl->errorMessage);
+            throw new GibddCaptchaException('Getting page fail: ' . $this->curl->errorMessage);
         }
         if (empty($cookie = $this->curl->getResponseCookie('JSESSIONID')) &&
             empty($cookie = $this->curl->getCookie('JSESSIONID'))) {
-            throw  new \Exception('Getting session cookie fail');
+            throw  new GibddCookieException('Getting session cookie fail');
         }
         $this->curl->setCookie('JSESSIONID', $cookie);
         if (isset($options['setCookie']) && $options['setCookie']) {
@@ -233,23 +260,26 @@ class Gibdd
     /**
      * Core execution function, returns bool value, execution result will be in $this->raw if there were no errors,
      * else $this->debug will speak for itself.
+     *
      * @param string $page
      * @param string $vin
      * @param string $captcha
+     *
      * @return bool
-     * @throws \Exception
+     * @throws GibddCookieException
+     * @throws GibddRuntimeException
      */
     private function exec($page, $vin, $captcha) {
         $type = array_keys(self::$_checkMethods[$page])[0];
         $tpl = self::$_checkMethods[$page][$type];
         if (!$type) {
-            throw new \Exception("Type for \"$page\" doesn't exist.");
+            throw new GibddRuntimeException("Type for \"$page\" doesn't exist.");
         }
         if (!$this->curl->getCookie('JSESSIONID')) {
             if (!empty($_COOKIE['JSESSIONID'])) {
                 $this->curl->setCookie('JSESSIONID', $_COOKIE['JSESSIONID']);
             } else {
-                throw new \Exception('Cookie "JSESSIONID" doesn\'t exist');
+                throw new GibddCookieException('Cookie "JSESSIONID" doesn\'t exist');
             }
         }
         if (!$this->isProxied) {
