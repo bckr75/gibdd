@@ -268,6 +268,7 @@ class Gibdd
      * @return bool
      * @throws GibddCookieException
      * @throws GibddRuntimeException
+     * @throws GibddCaptchaException
      */
     private function exec($page, $vin, $captcha) {
         $type = array_keys(self::$_checkMethods[$page])[0];
@@ -296,7 +297,7 @@ class Gibdd
                 'message' => 'Invalid captcha',
                 'code' => $this->curl->response['status']
             ];
-            return false;
+            throw new GibddCaptchaException('Invalid captcha');
         }
         if (!is_array($this->curl->response['RequestResult'])) {
             $this->debug[$type][] = [
@@ -304,7 +305,7 @@ class Gibdd
                 'message' => 'Invalid response',
                 'code' => 500
             ];
-            return false;
+            throw new GibddRuntimeException('Invalid response');
         }
         $this->raw[$type] = $this->convertRaw($this->curl->response['RequestResult'], $tpl);
         $this->isProxied = false;
