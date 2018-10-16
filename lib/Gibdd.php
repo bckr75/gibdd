@@ -109,6 +109,7 @@ class Gibdd
 
     private $isProxied = false;
     private $curl;
+    private $sessionId;
 
     /**
      * Default parameters in case you're initializing class without any.
@@ -172,6 +173,21 @@ class Gibdd
      */
     public function getDebug() {
         return $this->debug;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getSessionId() {
+        return $this->sessionId;
+    }
+
+    /**
+     * @param mixed $sessionId
+     */
+    public function setSessionId($sessionId) {
+        $this->sessionId = $sessionId;
+        $this->curl->setCookie('JSESSIONID', $sessionId);
     }
 
     /**
@@ -254,6 +270,7 @@ class Gibdd
             throw  new GibddCookieException('Getting session cookie fail');
         }
         $this->curl->setCookie('JSESSIONID', $cookie);
+        $this->sessionId = $cookie;
         if (isset($options['setCookie']) && $options['setCookie']) {
             setcookie('JSESSIONID', $cookie, time() + 30, '/');
         }
