@@ -187,7 +187,6 @@ class Gibdd
      */
     public function setSessionId($sessionId) {
         $this->sessionId = $sessionId;
-        $this->curl->setCookie('JSESSIONID', $sessionId);
     }
 
     /**
@@ -298,7 +297,9 @@ class Gibdd
             throw new GibddRuntimeException("Type for \"$page\" doesn't exist.");
         }
         if (!$this->curl->getCookie('JSESSIONID')) {
-            if (!empty($_COOKIE['JSESSIONID'])) {
+            if (!empty($this->sessionId)) {
+                $this->curl->setCookie('JSESSIONID', $this->sessionId);
+            } elseif (!empty($_COOKIE['JSESSIONID'])) {
                 $this->curl->setCookie('JSESSIONID', $_COOKIE['JSESSIONID']);
             } else {
                 throw new GibddCookieException('Cookie "JSESSIONID" doesn\'t exist');
